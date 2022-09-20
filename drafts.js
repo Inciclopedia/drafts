@@ -5,13 +5,13 @@ function installDrafts() {
 }
 
 function saveDraftBtn() {
-    if (localStorage.getItem("mw_draft") && !confirm("Ya existe un borrador. ¿Sobreescribir?")) {
+    const header = $("#firstHeading").text().match(/«([^»]+)/)[1];
+    if (localStorage.getItem("mw_draft_" + header) && !confirm("Ya existe un borrador. ¿Sobreescribir?")) {
         return;
     }
     const txt = $("#wpTextbox1").val();
-    const header = $("#firstHeading").text().match(/«([^»]+)/)[1];
     if (header) {
-        localStorage.setItem("mw_draft", txt);
+        localStorage.setItem("mw_draft_" + header, txt);
         alert("Borrador guardado con éxito. ¡Recuerda que solo se guarda en tu navegador y que si borras las cookies se pierde!")
     }
     else {
@@ -20,10 +20,11 @@ function saveDraftBtn() {
 }
 
 function recoverDraftBtn() {
-    if (!localStorage.getItem("mw_draft")) {
+    const header = $("#firstHeading").text().match(/«([^»]+)/)[1];
+    if (!localStorage.getItem("mw_draft_" + header)) {
         return alert("No tienes borradores guardados para este artículo");
     }
     if (confirm("Se sobreescribirá el contenido que estás editando con el de tu borrador. ¿Seguro que quieres hacer eso?")) {
-        $("#wpTextbox1").val(localStorage.getItem("mw_draft"));
+        $("#wpTextbox1").val(localStorage.getItem("mw_draft_" + header));
     }
 }
