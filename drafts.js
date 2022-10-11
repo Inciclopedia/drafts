@@ -15,29 +15,61 @@ function installDrafts() {
     draftsInstalled = true;
 }
 
-function saveDraftBtn() {
-    const header = $("#firstHeading").text().match(/«([^»]+)/)[1];
-    if (localStorage.getItem("mw_draft_" + header) && !confirm("Ya existe un borrador. ¿Sobreescribir?")) {
-        return;
+function saveDraft() {
+    if (window.isSaving) {
+        return alert("Estoy guardando...");
     }
-    const txt = $("#wpTextbox1").val();
-    if (header) {
-        localStorage.setItem("mw_draft_" + header, txt);
-        alert("Borrador guardado con éxito. ¡Recuerda que solo se guarda en tu navegador y que si borras las cookies se pierde!");
-    }
-    else {
-        alert("Error... no se pudo guardar :(");
-    }
+    window.isSaving = true;
+    savedQuery = "https://inciclopedia.org/w/api.php?action=query&prop=revisions&titles=Usuario:" + encodeURIComponent(mw.config.values['wgUserName'] + "/Borradores/" + mw.config.values['wgPageName']) + "&rvprop=content&formatversion=2&format=json";
+    console.log("GET a " + savedQuery);
+    $.getJSON({
+        url: savedQuery
+    }).done(function (data) {
+        const txt = $("#wpTextbox1").val();
+        if (data["query"] && data["query"]["pages"] && data["query"]["pages"][0] && data["query"]["pages"][0]["revisions"] && data["query"]["pages"][0]["revisions"][0] && !confirm("Ya existe un borrador. ¿Sobreescribir?")) {
+            window.isSaving = false;
+            return;
+        }
+        console.log("A por el CSRF");
+        $.getJSON({
+            url: "https://inciclopedia.org/w/api.php?action=query&meta=tokens&format=json"
+        }).done(function (data) {
+            csrfToken = data["query"]["tokens"]["csrftoken"];
+            query = "https://inciclopedia.org/w/api.php"
+            console.log("POST a " + query);
+            $.post(query, {
+                "action": "edit",
+                "title": "Usuario:" + mw.config.values['wgUserName'] + "/Borradores/" + mw.config.values['wgPageName'],
+                "token": csrfToken,
+                "minor": true,
+                "summary": "Guardando borrador",
+                "text": txt,
+                "format": "json"
+            }, function(data) {
+                if (data && data["edit"] && data["edit"]["result"] == "Success") {
+                    alert("Borrador guardado en tu página de usuario! Puedes verlo en Usuario:" + mw.config.values['wgUserName'] + "/Borradores/" + mw.config.values['wgPageName'])
+                } else {
+                    alert("Es posible que algo haya ido mal guardando el borrador :(");
+                }
+                window.isSaving = false;
+            })
+        });
+    });
 }
 
-function recoverDraftBtn() {
-    const header = $("#firstHeading").text().match(/«([^»]+)/)[1];
-    if (!localStorage.getItem("mw_draft_" + header)) {
-        return alert("No tienes borradores guardados para este artículo");
-    }
-    if (confirm("Se sobreescribirá el contenido que estás editando con el de tu borrador. ¿Seguro que quieres hacer eso?")) {
-        $("#wpTextbox1").val(localStorage.getItem("mw_draft_" + header));
-    }
+function recoverDraft() {
+    $.getJSON({
+        url: "https://inciclopedia.org/w/api.php?action=query&prop=revisions&titles=Usuario:" + encodeURIComponent(mw.config.values['wgUserName'] + "/Borradores/" + mw.config.values['wgPageName']) + "&rvprop=content&formatversion=2&format=json"
+    }).done(function (data) {
+        if (data["query"] && data["query"]["pages"] && data["query"]["pages"][0] && data["query"]["pages"][0]["revisions"] && data["query"]["pages"][0]["revisions"][0]) {
+            wikitext = data["query"]["pages"][0]["revisions"][0]["content"];
+            if (confirm("Se sobreescribirá el contenido que estás editando con el de tu borrador. ¿Seguro que quieres hacer eso?")) {
+                $("#wpTextbox1").val(wikitext);
+            }
+        } else {
+            return alert("No tienes borradores guardados para este artículo");
+        }
+    });
 }
 
 // https://stackoverflow.com/questions/11076975/how-to-insert-text-into-the-textarea-at-the-current-cursor-position
